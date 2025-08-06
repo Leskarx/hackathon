@@ -1,0 +1,19 @@
+[
+    {
+      "match": ".*README.*",
+      "category": "Documentation"
+    },
+    {
+      "match": ".*(/|\\\\)games(/|\\\\).*",
+      "category": "Games"
+    },
+    {
+      "match": ".*\\.jar",
+      "category": "Java Archives"
+    },
+    {
+      "match": ".*\\.apk",
+      "category": "Android Packages"
+    }
+  ]
+  
