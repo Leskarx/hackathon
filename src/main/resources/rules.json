@@ -3,10 +3,8 @@
       "match": ".*README.*",
       "category": "Documentation"
     },
-    {
-      "match": ".*(/|\\\\)games(/|\\\\).*",
-      "category": "Games"
-    },
+    { "match": "game", "category": "Games" },
+    { "match": ".pdf", "category": "Documents" },
     {
       "match": ".*\\.jar",
       "category": "Java Archives"

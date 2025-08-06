@@ -1,5 +1,5 @@
 [
   { "match": "setup", "category": "Installers" },
   { "match": "report", "category": "Documents" },
-  { "match": "demo", "category": "Demos" }
+  { "match": "game", "category": "Games" }
 ]
