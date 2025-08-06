@@ -2,200 +2,173 @@ package com.example.hackathon.service;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Scanner;
+import java.util.*;
+// import java.util.stream.Collectors;
 
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.io.FileUtils;
 import org.springframework.stereotype.Service;
 
 import com.example.hackathon.helper.GetfileExtension;
+import com.example.hackathon.rules.CategorizationRule;
+// import com.example.hackathon.service.Logwritter;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 @Service
 public class DuplicateScannerService {
 
     private final Map<String, List<File>> hashMap = new HashMap<>();
-    private final LoggerService logger = new LoggerService();
-    private final GetfileExtension getFileExtension=new GetfileExtension();
+    private final GetfileExtension getFileExtension = new GetfileExtension();
+    private List<CategorizationRule> metadataRules = new ArrayList<>();
 
-    private static final Map<String, String> CATEGORY_RULES = Map.of(
-        "exe", "Executables",
-        "pdf", "Documents",
-        "docx", "Documents",
-        "txt", "TextFiles",
-        "png", "Images",
-        "jpg", "Images",
-        "jpeg", "Images",
-        "zip", "Archives",
-        "rar", "Archives"
-    );
+    public DuplicateScannerService() {
+        loadCategorizationRules(); // ✅ Load rules from JSON file at startup
+    }
 
-
-    public void scanDirectory(String dirPath, boolean recursive) {
-        File directory = new File(dirPath);
-    
-        if (!directory.exists() || !directory.isDirectory()) {
-            System.out.println("❌ Invalid directory path.");
-            return;
-        }
-    
-        logger.log("Scanning directory: " + dirPath + " (recursive: " + recursive + ")");
-        Collection<File> files = FileUtils.listFiles(directory, null, recursive);
-        System.out.println("🔍 Scanning " + files.size() + " files...");
-    
-        List<File> allFiles = new ArrayList<>(); // to store non-deleted files
-    
-        for (File file : files) {
-            try {
-                String hash = DigestUtils.sha256Hex(FileUtils.readFileToByteArray(file));
-                hashMap.computeIfAbsent(hash, k -> new ArrayList<>()).add(file);
-            } catch (IOException e) {
-                logger.log("Failed to read file: " + file.getAbsolutePath());
-            }
-        }
-    
-        displayDuplicatesAndPromptDeletion();  // May delete some files
-    
-        // Collect remaining non-duplicate files
-        for (List<File> list : hashMap.values()) {
-            if (list.size() == 1) {
-                allFiles.addAll(list);
+    private void loadCategorizationRules() {
+        try {
+            File jsonFile = new File("metadata_rules.json"); // ✅ JSON must be in root dir or provide full path
+            if (jsonFile.exists()) {
+                ObjectMapper objectMapper = new ObjectMapper();
+                metadataRules = objectMapper.readValue(jsonFile, new TypeReference<List<CategorizationRule>>() {});
+                System.out.println("✅ Metadata categorization rules loaded: " + metadataRules.size());
             } else {
-                allFiles.add(list.get(0));  // keep one copy
+                System.out.println("⚠️ metadata_rules.json not found. Skipping metadata rules.");
             }
+        } catch (IOException e) {
+            System.out.println("❌ Error loading metadata rules: " + e.getMessage());
         }
-    
-        // Categorize
-        categorizeFiles(allFiles, dirPath);
     }
-    
-    private void categorizeFiles(Collection<File> files, String baseDir) {
-        logger.log("📂 Starting file categorization...");
-    
+
+    public void scanDirectory(String path, boolean recursive) {
+        hashMap.clear(); // Reset before every new scan
+
+        Collection<File> files = FileUtils.listFiles(new File(path), null, recursive);
         for (File file : files) {
-            String ext = getFileExtension.getFileExtension(file);
-            String category = CATEGORY_RULES.getOrDefault(ext, "Others");
-    
-            File categoryDir = new File(baseDir, category);
-            if (!categoryDir.exists()) {
-                categoryDir.mkdirs();
-                logger.log("📁 Created category directory: " + categoryDir.getAbsolutePath());
-            }
-    
-            File targetFile = new File(categoryDir, file.getName());
-    
             try {
-                FileUtils.moveFile(file, targetFile);
-                logger.log("📦 Moved file to category: " + targetFile.getAbsolutePath());
-                System.out.println("➡️ Moved: " + file.getName() + " → " + category + "/");
+                String fileHash = DigestUtils.sha256Hex(FileUtils.readFileToByteArray(file));
+                hashMap.computeIfAbsent(fileHash, k -> new ArrayList<>()).add(file);
             } catch (IOException e) {
-                logger.log("❌ Failed to move file: " + file.getAbsolutePath());
-                System.out.println("⚠️ Failed to move: " + file.getName());
+                System.out.println("❌ Failed to read file: " + file.getAbsolutePath());
             }
         }
-    
-        logger.log("✅ Categorization complete.");
+
+        deleteDuplicates();
+        categorizeApplications(path);
     }
-    
 
+    public void deleteDuplicatesOnly(String path, boolean recursive) {
+        hashMap.clear();
 
-    private void displayDuplicatesAndPromptDeletion() {
-        System.out.println("\n📑 Duplicate Files Found:");
-    
+        Collection<File> files = FileUtils.listFiles(new File(path), null, recursive);
+        for (File file : files) {
+            try {
+                String fileHash = DigestUtils.sha256Hex(FileUtils.readFileToByteArray(file));
+                hashMap.computeIfAbsent(fileHash, k -> new ArrayList<>()).add(file);
+            } catch (IOException e) {
+                System.out.println("❌ Failed to read file: " + file.getAbsolutePath());
+            }
+        }
+
+        deleteDuplicates();
+    }
+
+    public void categorizeOnly(String path, boolean recursive) {
+        categorizeApplications(path);
+    }
+
+    private void deleteDuplicates() {
         Scanner scanner = new Scanner(System.in);
-        int group = 1;
-        int totalDuplicateGroups = 0;
     
-        for (Map.Entry<String, List<File>> entry : hashMap.entrySet()) {
-            List<File> duplicates = entry.getValue();
+        int groupIndex = 1;
+    
+        for (List<File> duplicates : hashMap.values()) {
             if (duplicates.size() > 1) {
-                totalDuplicateGroups++;
-    
-                System.out.println("\n🧾 Group " + group + ":");
-    
+                System.out.println("\n🔁 Duplicate Group " + groupIndex++);
                 for (int i = 0; i < duplicates.size(); i++) {
-                    System.out.println(" [" + i + "] " + duplicates.get(i).getAbsolutePath());
+                    System.out.println("[" + i + "] " + duplicates.get(i).getAbsolutePath());
                 }
     
-                System.out.print("❓ Enter the indices of files you want to delete (comma separated), or press Enter to skip: ");
+                System.out.print("➡️ Enter index of file to KEEP (e.g., 0): ");
                 String input = scanner.nextLine();
     
-                if (!input.trim().isEmpty()) {
-                    String[] indices = input.split(",");
-                    for (String indexStr : indices) {
-                        try {
-                            int index = Integer.parseInt(indexStr.trim());
-                            File fileToDelete = duplicates.get(index);
-                            if (fileToDelete.delete()) {
-                                logger.log("Deleted file: " + fileToDelete.getAbsolutePath());
-                                System.out.println("✅ Deleted: " + fileToDelete.getAbsolutePath());
-                            } else {
-                                logger.log("Failed to delete file: " + fileToDelete.getAbsolutePath());
-                                System.out.println("❌ Failed to delete: " + fileToDelete.getAbsolutePath());
-                            }
-                        } catch (NumberFormatException | IndexOutOfBoundsException e) {
-                            logger.log("Invalid deletion index entered: " + indexStr.trim());
-                            System.out.println("⚠️ Invalid index: " + indexStr.trim());
-                        }
+                int keepIndex;
+                try {
+                    keepIndex = Integer.parseInt(input);
+                    if (keepIndex < 0 || keepIndex >= duplicates.size()) {
+                        System.out.println("⚠️ Invalid index. Skipping this group.");
+                        continue;
                     }
-                } else {
-                    System.out.println("➡️ Skipping deletion for this group.");
+                } catch (NumberFormatException e) {
+                    System.out.println("⚠️ Invalid input. Skipping this group.");
+                    continue;
                 }
     
-                group++;
+                for (int i = 0; i < duplicates.size(); i++) {
+                    if (i != keepIndex) {
+                        File file = duplicates.get(i);
+                        if (file.delete()) {
+                            System.out.println("🗑️ Deleted: " + file.getAbsolutePath());
+                            Logwritter.write("🗑️ Deleted: " + file.getAbsolutePath());
+                        } else {
+                            System.out.println("❌ Failed to delete: " + file.getAbsolutePath());
+                        }
+                    }
+                }
             }
         }
     
-        if (totalDuplicateGroups == 0) {
-            System.out.println("🎉 No duplicate files found.");
-            logger.log("No duplicate files found.");
-        } else {
-            logger.log("Total duplicate groups found: " + totalDuplicateGroups);
-        }
+        System.out.println("\n✅ Duplicate deletion process completed.");
     }
     
-    public void deleteDuplicatesOnly(String dirPath, boolean recursive) {
-        File directory = new File(dirPath);
-    
-        if (!directory.exists() || !directory.isDirectory()) {
-            System.out.println("❌ Invalid directory path.");
-            return;
-        }
-    
-        logger.log("Scanning for duplicates only: " + dirPath + " (recursive: " + recursive + ")");
-        Collection<File> files = FileUtils.listFiles(directory, null, recursive);
-    
+
+    private void categorizeApplications(String basePath) {
+        Collection<File> files = FileUtils.listFiles(new File(basePath), null, true);
+
         for (File file : files) {
-            try {
-                String hash = DigestUtils.sha256Hex(FileUtils.readFileToByteArray(file));
-                hashMap.computeIfAbsent(hash, k -> new ArrayList<>()).add(file);
-            } catch (IOException e) {
-                logger.log("Failed to read file: " + file.getAbsolutePath());
+            String extension = getFileExtension.getFileExtension(file);
+            String category = getCategoryFromRules(file, extension);
+
+            if (category != null && !category.isEmpty()) {
+                File targetDir = new File(basePath + File.separator + category);
+                if (!targetDir.exists()) {
+                    targetDir.mkdirs();
+                }
+
+                File dest = new File(targetDir, file.getName());
+                try {
+                    FileUtils.moveFile(file, dest);
+                    System.out.println("➡️ Moved: " + file.getName() + " → " + category + "/");
+                    Logwritter.write("➡️ Moved: " + file.getName() + " → " + category + "/");
+                } catch (IOException e) {
+                    System.out.println("❌ Failed to move: " + file.getAbsolutePath());
+                }
             }
         }
-    
-        displayDuplicatesAndPromptDeletion();
     }
 
-    public void categorizeOnly(String dirPath, boolean recursive) {
-        File directory = new File(dirPath);
-    
-        if (!directory.exists() || !directory.isDirectory()) {
-            System.out.println("❌ Invalid directory path.");
-            return;
+    private String getCategoryFromRules(File file, String extension) {
+        // ✅ First try metadata rules
+        for (CategorizationRule rule : metadataRules) {
+            if (file.getName().toLowerCase().contains(rule.getMatch().toLowerCase())) {
+                return rule.getCategory();
+            }
         }
-    
-        logger.log("Categorizing files only: " + dirPath + " (recursive: " + recursive + ")");
-        Collection<File> files = FileUtils.listFiles(directory, null, recursive);
-    
-        List<File> fileList = new ArrayList<>(files);
-        categorizeFiles(fileList, dirPath);
-    }
-    
-    
 
+        // ✅ Then fall back to extension-based
+        Map<String, String> CATEGORY_RULES = Map.of(
+            "exe", "Executables",
+            "pdf", "Documents",
+            "docx", "Documents",
+            "txt", "TextFiles",
+            "png", "Images",
+            "jpg", "Images",
+            "jpeg", "Images",
+            "mp4", "Videos",
+            "mkv", "Videos"
+        );
+
+        return CATEGORY_RULES.getOrDefault(extension, "Others");
+    }
 }
