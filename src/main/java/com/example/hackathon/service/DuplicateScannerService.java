@@ -11,7 +11,9 @@ import java.util.Scanner;
 
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.io.FileUtils;
+import org.springframework.stereotype.Service;
 
+@Service
 public class DuplicateScannerService {
 
     private final Map<String, List<File>> hashMap = new HashMap<>();
