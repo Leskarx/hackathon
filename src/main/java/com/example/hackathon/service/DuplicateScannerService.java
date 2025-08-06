@@ -51,16 +51,18 @@ public class DuplicateScannerService {
 
         displayDuplicatesAndPromptDeletion();
     }
-
     private void displayDuplicatesAndPromptDeletion() {
         System.out.println("\n📑 Duplicate Files Found:");
     
         Scanner scanner = new Scanner(System.in);
         int group = 1;
+        int totalDuplicateGroups = 0;
     
         for (Map.Entry<String, List<File>> entry : hashMap.entrySet()) {
             List<File> duplicates = entry.getValue();
             if (duplicates.size() > 1) {
+                totalDuplicateGroups++;
+    
                 System.out.println("\n🧾 Group " + group + ":");
     
                 for (int i = 0; i < duplicates.size(); i++) {
@@ -85,7 +87,6 @@ public class DuplicateScannerService {
                             }
                         } catch (NumberFormatException | IndexOutOfBoundsException e) {
                             logger.log("Invalid deletion index entered: " + indexStr.trim());
-
                             System.out.println("⚠️ Invalid index: " + indexStr.trim());
                         }
                     }
@@ -95,6 +96,13 @@ public class DuplicateScannerService {
     
                 group++;
             }
+        }
+    
+        if (totalDuplicateGroups == 0) {
+            System.out.println("🎉 No duplicate files found.");
+            logger.log("No duplicate files found.");
+        } else {
+            logger.log("Total duplicate groups found: " + totalDuplicateGroups);
         }
     }
     
