@@ -15,6 +15,8 @@ import org.apache.commons.io.FileUtils;
 public class DuplicateScannerService {
 
     private final Map<String, List<File>> hashMap = new HashMap<>();
+    private final LoggerService logger = new LoggerService();
+
 
     public void scanDirectory(String dirPath, boolean recursive) {
         File directory = new File(dirPath);
@@ -24,7 +26,11 @@ public class DuplicateScannerService {
             return;
         }
 
+        logger.log("Scanning directory: " + dirPath + " (recursive: " + recursive + ")");
+
+
         Collection<File> files = FileUtils.listFiles(directory, null, recursive);
+        logger.log("Scanning directory: " + dirPath + " (recursive: " + recursive + ")");
 
         System.out.println("🔍 Scanning " + files.size() + " files...");
 
@@ -32,7 +38,11 @@ public class DuplicateScannerService {
             try {
                 String hash = DigestUtils.sha256Hex(FileUtils.readFileToByteArray(file));
                 hashMap.computeIfAbsent(hash, k -> new ArrayList<>()).add(file);
+                logger.log("Hashing file: " + file.getAbsolutePath());
+
             } catch (IOException e) {
+                logger.log("Failed to read file: " + file.getAbsolutePath());
+
                 System.out.println("⚠️ Failed to read file: " + file.getAbsolutePath());
             }
         }
@@ -65,11 +75,15 @@ public class DuplicateScannerService {
                             int index = Integer.parseInt(indexStr.trim());
                             File fileToDelete = duplicates.get(index);
                             if (fileToDelete.delete()) {
+                                logger.log("Deleted file: " + fileToDelete.getAbsolutePath());
                                 System.out.println("✅ Deleted: " + fileToDelete.getAbsolutePath());
                             } else {
+                                logger.log("Failed to delete file: " + fileToDelete.getAbsolutePath());
                                 System.out.println("❌ Failed to delete: " + fileToDelete.getAbsolutePath());
                             }
                         } catch (NumberFormatException | IndexOutOfBoundsException e) {
+                            logger.log("Invalid deletion index entered: " + indexStr.trim());
+
                             System.out.println("⚠️ Invalid index: " + indexStr.trim());
                         }
                     }
