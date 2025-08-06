@@ -3,3 +3,7 @@
 [2025-08-06T13:18:42.271360510] Hashing file: /home/leskar/Documents/project/java/Hackthon/demo/hello (Copy).txt
 [2025-08-06T13:18:42.272047188] Hashing file: /home/leskar/Documents/project/java/Hackthon/demo/hello.txt
 [2025-08-06T13:18:47.664031693] Deleted file: /home/leskar/Documents/project/java/Hackthon/demo/hello (Copy).txt
+[2025-08-06T13:39:51.307792110] Scanning directory: /home/leskar/Documents/project/java/Hackthon/demo (recursive: true)
+[2025-08-06T13:39:51.319304165] Scanning directory: /home/leskar/Documents/project/java/Hackthon/demo (recursive: true)
+[2025-08-06T13:39:51.362427575] Hashing file: /home/leskar/Documents/project/java/Hackthon/demo/hello (Copy).txt
+[2025-08-06T13:39:51.363286272] Hashing file: /home/leskar/Documents/project/java/Hackthon/demo/hello.txt

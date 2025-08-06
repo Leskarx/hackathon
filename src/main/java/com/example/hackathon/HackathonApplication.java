@@ -1,5 +1,6 @@
 package com.example.hackathon;
 
+import java.io.File;
 import java.util.Scanner;
 
 import org.springframework.boot.CommandLineRunner;
@@ -7,6 +8,7 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 import com.example.hackathon.service.DuplicateScannerService;
+import com.example.hackathon.service.EmailService;
 
 @SpringBootApplication
 public class HackathonApplication implements CommandLineRunner {
@@ -31,6 +33,23 @@ public class HackathonApplication implements CommandLineRunner {
         // Here you can call your scanning service
         DuplicateScannerService scannerService = new DuplicateScannerService();
         scannerService.scanDirectory(directory, recursive);
+		
+		System.out.print("📧 Do you want to email the log file? (y/n): ");
+String emailOption = scanner.nextLine();
+
+if (emailOption.equalsIgnoreCase("y")) {
+    System.out.print("✉️ Enter the recipient's email address: ");
+    String toEmail = scanner.nextLine();
+
+    File logFile = new File("appcleaner-log.txt");
+    if (logFile.exists()) {
+        EmailService emailService = new EmailService();
+        emailService.sendEmailWithAttachment(toEmail, logFile);
+    } else {
+        System.out.println("⚠️ Log file not found.");
+    }
+}
+
 
         System.out.println("✅ Scan completed.");
     }
