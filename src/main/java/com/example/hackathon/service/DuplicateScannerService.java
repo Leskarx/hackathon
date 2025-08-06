@@ -158,4 +158,44 @@ public class DuplicateScannerService {
         }
     }
     
+    public void deleteDuplicatesOnly(String dirPath, boolean recursive) {
+        File directory = new File(dirPath);
+    
+        if (!directory.exists() || !directory.isDirectory()) {
+            System.out.println("❌ Invalid directory path.");
+            return;
+        }
+    
+        logger.log("Scanning for duplicates only: " + dirPath + " (recursive: " + recursive + ")");
+        Collection<File> files = FileUtils.listFiles(directory, null, recursive);
+    
+        for (File file : files) {
+            try {
+                String hash = DigestUtils.sha256Hex(FileUtils.readFileToByteArray(file));
+                hashMap.computeIfAbsent(hash, k -> new ArrayList<>()).add(file);
+            } catch (IOException e) {
+                logger.log("Failed to read file: " + file.getAbsolutePath());
+            }
+        }
+    
+        displayDuplicatesAndPromptDeletion();
+    }
+
+    public void categorizeOnly(String dirPath, boolean recursive) {
+        File directory = new File(dirPath);
+    
+        if (!directory.exists() || !directory.isDirectory()) {
+            System.out.println("❌ Invalid directory path.");
+            return;
+        }
+    
+        logger.log("Categorizing files only: " + dirPath + " (recursive: " + recursive + ")");
+        Collection<File> files = FileUtils.listFiles(directory, null, recursive);
+    
+        List<File> fileList = new ArrayList<>(files);
+        categorizeFiles(fileList, dirPath);
+    }
+    
+    
+
 }

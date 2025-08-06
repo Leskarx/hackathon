@@ -29,45 +29,73 @@ public class HackathonApplication implements CommandLineRunner {
     @Override
     public void run(String... args) {
         Scanner scanner = new Scanner(System.in);
-
+    
         System.out.println("📦 Welcome to Duplicate App Cleaner");
         System.out.println("====================================");
-
-        // 🧹 Initialize log file (delete existing or archive it)
+    
+        // Initialize and archive logs
         Logwritter.initLogFile();
-
-        // 🗂 Directory input
+    
+        // Directory input
         System.out.print("📂 Enter the directory path to scan: ");
         String directory = scanner.nextLine();
-        System.out.println("📁 Scanning: " + directory);
-
-        // 🔄 Recursive scan option
+        File dir = new File(directory);
+        if (!dir.exists() || !dir.isDirectory()) {
+            System.out.println("❌ Invalid directory path.");
+            return;
+        }
+    
+        // Recursive option
         System.out.print("🔁 Scan subdirectories? (y/n): ");
         boolean recursive = scanner.nextLine().trim().equalsIgnoreCase("y");
-
-        // 🚀 Start scanning
-        scannerService.scanDirectory(directory, recursive);
-
-        // 📧 Ask if email should be sent
+    
+        // 🔘 Show user menu
+        System.out.println("\nChoose an operation:");
+        System.out.println("1. 🗑️ Delete Duplicate Files");
+        System.out.println("2. 🗂️ Categorize Files by Type");
+        System.out.println("3. 🔄 Both (Delete Duplicates & Categorize)");
+        System.out.println("4. ❌ Exit");
+    
+        System.out.print("➡️ Enter choice (1-4): ");
+        String choice = scanner.nextLine().trim();
+    
+        switch (choice) {
+            case "1":
+                scannerService.deleteDuplicatesOnly(directory, recursive);
+                break;
+            case "2":
+                scannerService.categorizeOnly(directory, recursive);
+                break;
+            case "3":
+                scannerService.scanDirectory(directory, recursive); // Original full flow
+                break;
+            case "4":
+                System.out.println("👋 Exiting application.");
+                return;
+            default:
+                System.out.println("⚠️ Invalid choice. Exiting.");
+                return;
+        }
+    
+        // Ask for email
         System.out.print("📧 Do you want to email the log file? (y/n): ");
         String emailOption = scanner.nextLine();
-
+    
         if (emailOption.equalsIgnoreCase("y")) {
             System.out.print("✉️ Enter the recipient's email address: ");
             String toEmail = scanner.nextLine();
-
-            File logFile = new File("logs/appcleaner-log.txt");
-
+    
+            File logFile = Logwritter.getLogFile();
+    
             if (logFile.exists()) {
                 emailService.sendEmailWithAttachment(toEmail, logFile);
             } else {
                 System.out.println("⚠️ Log file not found.");
             }
         }
-
-        System.out.println("✅ Scan completed.");
-        
-        // ✅ Close scanner to prevent memory/resource leaks
+    
+        System.out.println("✅ Operation completed.");
         scanner.close();
     }
+    
 }
